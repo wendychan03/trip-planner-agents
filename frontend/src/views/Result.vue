@@ -307,33 +307,43 @@
   </div>
 </template>
 
+<!-- <script setup>模块结构
+  ├── 1. 页面初始化     onMounted: 读 sessionStorage → 拉图片 → 等 DOM → 初始化地图
+  ├── 2. 编辑模式       toggleEditMode / saveChanges / cancelEdit（深拷贝快照 + 恢复）
+  ├── 3. 景点图片       三层降级：真实图 → SVG 占位图 → 灰色失败图
+  ├── 4. 导出           图片/PDF 流程相同：复制 DOM → 截图地图 → 覆盖样式 → 下载
+  ├── 5a. 地图初始化    initMap: 加载高德 JSAPI → 创建实例
+  ├── 5b. 标记          addAttractionMarkers: 打 Marker + InfoWindow
+  └── 5c. 路线          drawRoutes: 按天分组画 Polyline
+</style>
+ -->
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { DownOutlined } from '@ant-design/icons-vue'
-import AMapLoader from '@amap/amap-jsapi-loader'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
+import AMapLoader from '@amap/amap-jsapi-loader' // 高德地图 JSAPI 动态加载器
+import html2canvas from 'html2canvas' // HTML → Canvas 截图（导出用）
+import jsPDF from 'jspdf' // 生成 PDF
 import type { TripPlan } from '@/types'
 
 const router = useRouter()
-const tripPlan = ref<TripPlan | null>(null)
+const tripPlan = ref<TripPlan | null>(null) // 从 sessionStorage 读取的行程数据
 const editMode = ref(false)
-const originalPlan = ref<TripPlan | null>(null)
-const attractionPhotos = ref<Record<string, string>>({})
+const originalPlan = ref<TripPlan | null>(null) // 编辑前快照，取消时恢复用
+const attractionPhotos = ref<Record<string, string>>({}) // 景点名 → 真实图片 URL 缓存
 const activeSection = ref('overview')
 const activeDays = ref<number[]>([0]) // 默认展开第一天
-let map: any = null
+let map: any = null // 高德地图实例
 
+// ===== 1. 页面初始化 =====
+// 从 sessionStorage 读数据 → 拉图片 → 等 DOM 渲染 → 初始化地图
 onMounted(async () => {
   const data = sessionStorage.getItem('tripPlan')
   if (data) {
     tripPlan.value = JSON.parse(data)
-    // 加载景点图片
-    await loadAttractionPhotos()
-    // 等待DOM渲染完成后初始化地图
-    await nextTick()
+    await loadAttractionPhotos() // 并发加载所有景点真实图片
+    await nextTick() // 等 Vue 完成 DOM 更新，否则地图容器不存在
     initMap()
   }
 })
@@ -342,7 +352,7 @@ const goBack = () => {
   router.push('/')
 }
 
-// 滚动到指定区域
+// 侧边导航点击 → 平滑滚动到对应区块
 const scrollToSection = ({ key }: { key: string }) => {
   activeSection.value = key
   const element = document.getElementById(key)
@@ -351,24 +361,21 @@ const scrollToSection = ({ key }: { key: string }) => {
   }
 }
 
-// 切换编辑模式
+// ===== 2. 编辑模式 =====
+// 进入编辑：深拷贝一份快照，取消时恢复
 const toggleEditMode = () => {
   editMode.value = true
-  // 保存原始数据用于取消编辑
-  originalPlan.value = JSON.parse(JSON.stringify(tripPlan.value))
+  originalPlan.value = JSON.parse(JSON.stringify(tripPlan.value)) // 深拷贝，不能用 =
   message.info('进入编辑模式')
 }
 
-// 保存修改
+// 保存：写回 sessionStorage，销毁并重建地图（景点可能被删）
 const saveChanges = () => {
   editMode.value = false
-  // 更新sessionStorage
   if (tripPlan.value) {
     sessionStorage.setItem('tripPlan', JSON.stringify(tripPlan.value))
   }
   message.success('修改已保存')
-
-  // 重新初始化地图以反映更改
   if (map) {
     map.destroy()
   }
@@ -377,7 +384,7 @@ const saveChanges = () => {
   })
 }
 
-// 取消编辑
+// 取消：快照覆盖当前数据
 const cancelEdit = () => {
   if (originalPlan.value) {
     tripPlan.value = JSON.parse(JSON.stringify(originalPlan.value))
@@ -386,7 +393,7 @@ const cancelEdit = () => {
   message.info('已取消编辑')
 }
 
-// 删除景点
+// 删除景点，至少保留一个
 const deleteAttraction = (dayIndex: number, attrIndex: number) => {
   if (!tripPlan.value) return
 
@@ -400,7 +407,7 @@ const deleteAttraction = (dayIndex: number, attrIndex: number) => {
   message.success('景点已删除')
 }
 
-// 移动景点顺序
+// 上下移动景点顺序（数组元素交换）
 const moveAttraction = (dayIndex: number, attrIndex: number, direction: 'up' | 'down') => {
   if (!tripPlan.value) return
 
@@ -414,6 +421,7 @@ const moveAttraction = (dayIndex: number, attrIndex: number, direction: 'up' | '
   }
 }
 
+// 餐饮类型枚举映射
 const getMealLabel = (type: string): string => {
   const labels: Record<string, string> = {
     breakfast: '早餐',
@@ -424,7 +432,8 @@ const getMealLabel = (type: string): string => {
   return labels[type] || type
 }
 
-// 加载所有景点图片
+// ===== 3. 景点图片（三层降级：真实图 → SVG 占位图 → 灰色失败图） =====
+// 并发请求所有景点的真实图片，存入 attractionPhotos 缓存
 const loadAttractionPhotos = async () => {
   if (!tripPlan.value) return
 
@@ -447,17 +456,16 @@ const loadAttractionPhotos = async () => {
     })
   })
 
-  await Promise.all(promises)
+  await Promise.all(promises) // 所有请求并发，等全部完成
 }
 
-// 获取景点图片
+// 获取景点图片：优先真实图 → 否则返回 SVG 渐变色占位图（base64 编码避免中文问题）
 const getAttractionImage = (name: string, index: number): string => {
-  // 如果已加载真实图片,返回真实图片
   if (attractionPhotos.value[name]) {
     return attractionPhotos.value[name]
   }
 
-  // 返回一个纯色占位图(避免跨域问题)
+  // 5 种渐变色循环使用
   const colors = [
     { start: '#667eea', end: '#764ba2' },
     { start: '#f093fb', end: '#f5576c' },
@@ -468,7 +476,6 @@ const getAttractionImage = (name: string, index: number): string => {
   const colorIndex = index % colors.length
   const { start, end } = colors[colorIndex]
 
-  // 使用base64编码避免中文问题
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
     <defs>
       <linearGradient id="grad${index}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -483,14 +490,15 @@ const getAttractionImage = (name: string, index: number): string => {
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`
 }
 
-// 图片加载失败时的处理
+// 最后一层降级：图片加载失败 → 灰色占位图
 const handleImageError = (event: Event) => {
   const img = event.target as HTMLImageElement
-  // 使用灰色占位图
   img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect width="400" height="300" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="18" fill="%23999"%3E图片加载失败%3C/text%3E%3C/svg%3E'
 }
 
 
+
+// ===== 4. 导出（图片 / PDF，流程相同：复制 DOM → 截图地图 → 覆盖样式 → 渲染 → 下载） =====
 
 // 导出为图片
 const exportAsImage = async () => {
@@ -829,7 +837,7 @@ const restoreMap = () => {
   }
 }
 
-// 初始化地图
+// 初始化地图：加载高德 JSAPI → 创建实例 → 打标记 → 画路线
 const initMap = async () => {
   try {
     const AMap = await AMapLoader.load({
@@ -855,7 +863,7 @@ const initMap = async () => {
   }
 }
 
-// 添加景点标记
+// 遍历所有天的所有景点，为每个经纬度打 Marker + 点击弹出 InfoWindow
 const addAttractionMarkers = (AMap: any) => {
   if (!tripPlan.value) return
 
@@ -920,7 +928,7 @@ const addAttractionMarkers = (AMap: any) => {
   drawRoutes(AMap, allAttractions)
 }
 
-// 绘制路线
+// 按天分组，用 Polyline 绘制景点之间的路线箭头
 const drawRoutes = (AMap: any, attractions: any[]) => {
   if (attractions.length < 2) return
 

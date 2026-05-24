@@ -206,16 +206,18 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { message } from 'ant-design-vue' // 消息提示（toast）
 import { generateTripPlan } from '@/services/api'
 import type { TripFormData } from '@/types'
-import type { Dayjs } from 'dayjs'
+import type { Dayjs } from 'dayjs' // dayjs 日期对象的 TypeScript 类型
 
 const router = useRouter()
+// 用 ref 控制加载状态，值变化时模板自动更新
 const loading = ref(false)
 const loadingProgress = ref(0)
 const loadingStatus = ref('')
 
+// 表单数据用 reactive，因为字段多且会动态变动。日期字段额外联合了 dayjs 类型
 const formData = reactive<TripFormData & { start_date: Dayjs | null; end_date: Dayjs | null }>({
   city: '',
   start_date: null,
@@ -227,7 +229,7 @@ const formData = reactive<TripFormData & { start_date: Dayjs | null; end_date: D
   free_text_input: ''
 })
 
-// 监听日期变化,自动计算旅行天数
+// 监听起止日期变化，自动用 dayjs.diff() 计算 travel_days
 watch([() => formData.start_date, () => formData.end_date], ([start, end]) => {
   if (start && end) {
     const days = end.diff(start, 'day') + 1
@@ -243,22 +245,23 @@ watch([() => formData.start_date, () => formData.end_date], ([start, end]) => {
   }
 })
 
+// 提交表单 → 调 API → 存结果 → 跳转 Result 页面
 const handleSubmit = async () => {
+  // 1. 校验日期
   if (!formData.start_date || !formData.end_date) {
     message.error('请选择日期')
     return
   }
 
+  // 2. 开启 loading 状态和假进度条（后端返回前只涨到 90%）
   loading.value = true
   loadingProgress.value = 0
   loadingStatus.value = '正在初始化...'
 
-  // 模拟进度更新
   const progressInterval = setInterval(() => {
     if (loadingProgress.value < 90) {
       loadingProgress.value += 10
 
-      // 更新状态文本
       if (loadingProgress.value <= 30) {
         loadingStatus.value = '🔍 正在搜索景点...'
       } else if (loadingProgress.value <= 50) {
@@ -272,6 +275,7 @@ const handleSubmit = async () => {
   }, 500)
 
   try {
+    // 3. dayjs 对象 → 字符串，调用后端 API
     const requestData: TripFormData = {
       city: formData.city,
       start_date: formData.start_date.format('YYYY-MM-DD'),
@@ -282,20 +286,18 @@ const handleSubmit = async () => {
       preferences: formData.preferences,
       free_text_input: formData.free_text_input
     }
-
+    // 发给后端，等待响应
     const response = await generateTripPlan(requestData)
 
+    // 4. 完成后进度跳到 100%
     clearInterval(progressInterval)
     loadingProgress.value = 100
     loadingStatus.value = '✅ 完成!'
 
     if (response.success && response.data) {
-      // 保存到sessionStorage
+      // 用 sessionStorage 传数据给 Result 页面（路由跳转时内存中的 reactive 数据会丢失）
       sessionStorage.setItem('tripPlan', JSON.stringify(response.data))
-
       message.success('旅行计划生成成功!')
-
-      // 短暂延迟后跳转
       setTimeout(() => {
         router.push('/result')
       }, 500)
@@ -306,6 +308,7 @@ const handleSubmit = async () => {
     clearInterval(progressInterval)
     message.error(error.message || '生成旅行计划失败,请稍后重试')
   } finally {
+    // 让用户看到 "✅ 完成!" 的提示后再重置状态
     setTimeout(() => {
       loading.value = false
       loadingProgress.value = 0

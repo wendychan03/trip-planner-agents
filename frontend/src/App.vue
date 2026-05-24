@@ -1,3 +1,4 @@
+<!-- 根组件：提供所有页面共用的壳（顶栏 + 内容区 + 底栏） -->
 <template>
   <div id="app">
     <a-layout style="min-height: 100vh">
@@ -7,6 +8,7 @@
         </div>
       </a-layout-header>
       <a-layout-content style="padding: 24px">
+        <!-- 根据 URL 切换页面：/ → Home.vue，/result → Result.vue -->
         <router-view />
       </a-layout-content>
       <a-layout-footer style="text-align: center">
