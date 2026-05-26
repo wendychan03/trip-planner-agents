@@ -5,46 +5,48 @@ from hello_agents.tools import MCPTool
 from ..config import get_settings
 from ..models.schemas import Location, POIInfo, WeatherInfo
 
-# 全局MCP工具实例
+# 模块级全局变量，整个进程只存在一份，作为单例的地基
 _amap_mcp_tool = None
 
 
 def get_amap_mcp_tool() -> MCPTool:
     """
-    获取高德地图MCP工具实例(单例模式)
-    
+    获取高德地图MCP工具实例（单例模式）。
+    首次调用时创建 MCPTool → 启动 amap-mcp-server 子进程 → 握手获取工具列表；
+    后续调用直接返回已创建的实例，避免重复启动子进程。
+
     Returns:
-        MCPTool实例
+        MCPTool实例（全局唯一）
     """
-    global _amap_mcp_tool
-    
-    if _amap_mcp_tool is None:
+    global _amap_mcp_tool  # 要重新赋值模块级变量，必须声明 global
+
+    if _amap_mcp_tool is None:          # 只在首次调用时进入，后续直接跳过
         settings = get_settings()
-        
-        if not settings.amap_api_key:
+
+        if not settings.amap_api_key:   # 早早失败，比等子进程报错更容易定位
             raise ValueError("高德地图API Key未配置,请在.env文件中设置AMAP_API_KEY")
-        
-        # 创建MCP工具
+
+        # 创建 MCPTool — 构造时内部完成 MCP 握手（list_tools），获取子进程支持的工具列表
         _amap_mcp_tool = MCPTool(
             name="amap",
             description="高德地图服务,支持POI搜索、路线规划、天气查询等功能",
-            server_command=["uvx", "amap-mcp-server"],
-            env={"AMAP_MAPS_API_KEY": settings.amap_api_key},
-            auto_expand=True  # 自动展开为独立工具
+            server_command=["uvx", "amap-mcp-server"],  # uvx 自动下载并启动 MCP Server
+            env={"AMAP_MAPS_API_KEY": settings.amap_api_key},  # API Key 通过环境变量注入子进程
+            auto_expand=True  # 把 MCP Server 的多个工具展开为独立可调用工具，Agent 可按名直接调用
         )
-        
+
+        # 握手完成，_available_tools 已被填充为子进程返回的工具列表（写死在 amap-mcp-server 代码中）
         print(f"✅ 高德地图MCP工具初始化成功")
         print(f"   工具数量: {len(_amap_mcp_tool._available_tools)}")
-        
-        # 打印可用工具列表
+
         if _amap_mcp_tool._available_tools:
             print("   可用工具:")
-            for tool in _amap_mcp_tool._available_tools[:5]:  # 只打印前5个
+            for tool in _amap_mcp_tool._available_tools[:5]:  # 只打印前5个，防止刷屏
                 print(f"     - {tool.get('name', 'unknown')}")
             if len(_amap_mcp_tool._available_tools) > 5:
                 print(f"     ... 还有 {len(_amap_mcp_tool._available_tools) - 5} 个工具")
-    
-    return _amap_mcp_tool
+
+    return _amap_mcp_tool  # 不管新建还是已有，最终都返回同一个实例
 
 
 class AmapService:

@@ -1,5 +1,13 @@
-"""数据模型定义"""
+"""
+数据模型定义 — 整个应用的数据契约层。
 
+三个作用：
+1. 定义请求/响应的字段和类型 → FastAPI 自动校验请求体、自动生成 Swagger 文档
+2. 继承 BaseModel 获得校验、类型转换、JSON 序列化能力
+3. Field(description=...) 的 description 会出现在 Swagger UI 中作为字段说明
+"""
+
+# FastAPI 的请求体自动校验、Swagger 文档自动生成，全部依赖 Pydantic 模型
 from typing import List, Optional, Union
 from pydantic import BaseModel, Field, field_validator
 from datetime import date
@@ -8,7 +16,11 @@ from datetime import date
 # ============ 请求模型 ============
 
 class TripRequest(BaseModel):
-    """旅行规划请求"""
+    """
+    旅行规划请求。
+    继承 BaseModel → 自动获得类型校验：前端传来 JSON，FastAPI 用这个模型校验必填/类型/范围。
+    Field(...) 中的 ... 表示必填，description 会显示在 Swagger 文档中。
+    """
     city: str = Field(..., description="目的地城市", example="北京")
     start_date: str = Field(..., description="开始日期 YYYY-MM-DD", example="2025-06-01")
     end_date: str = Field(..., description="结束日期 YYYY-MM-DD", example="2025-06-03")

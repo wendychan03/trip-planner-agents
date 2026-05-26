@@ -1,4 +1,17 @@
-"""旅行规划API路由"""
+"""
+旅行规划API路由
+
+路由匹配过程：
+  前端用 axios 发请求: POST /api/trip/plan
+            ↓
+  main.py:   /api 前缀匹配 → 交给 trip.router
+            ↓
+  trip.py:   /trip 前缀匹配 → 找到 @router.post("/plan")
+            ↓
+  FastAPI:   用 TripRequest 校验 JSON body
+            ↓
+  调用 plan_trip(request) → 返回 TripPlanResponse
+"""
 
 from fastapi import APIRouter, HTTPException
 from ...models.schemas import (
@@ -9,12 +22,14 @@ from ...models.schemas import (
 from ...agents.trip_planner_agent import get_trip_planner_agent
 
 router = APIRouter(prefix="/trip", tags=["旅行规划"])
+# 小型 FastAPI 实例，prefix="/trip" → 本文件所有路径自动加 /trip 前缀
+# tags=["旅行规划"] → Swagger UI 中按"旅行规划"分组显示
 
-
+# POST :我想提交数据，让服务器处理、创建或生成结果（有副作用、有请求体、非幂等）
 @router.post(
-    "/plan",
-    response_model=TripPlanResponse,
-    summary="生成旅行计划",
+    "/plan",                                 # 拼成 POST /trip/plan（再由 main.py 的 /api 前缀 → /api/trip/plan）
+    response_model=TripPlanResponse,         # 返回数据自动按此模型校验，并生成 Swagger 响应文档
+    summary="生成旅行计划",                   # Swagger 标题
     description="根据用户输入的旅行需求,生成详细的旅行计划"
 )
 async def plan_trip(request: TripRequest):
@@ -60,7 +75,7 @@ async def plan_trip(request: TripRequest):
             detail=f"生成旅行计划失败: {str(e)}"
         )
 
-
+# GET : 我想拿已有的数据（无副作用、无请求体、幂等）
 @router.get(
     "/health",
     summary="健康检查",
