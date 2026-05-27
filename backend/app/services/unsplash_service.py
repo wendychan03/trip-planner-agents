@@ -18,16 +18,16 @@ class UnsplashService:
         搜索图片 — 直接调用 Unsplash REST API（HTTP GET），不经过 MCP 子进程。
         """
         try:
-            # 1. 构造请求：Access Key 作为 client_id 参数传入，无需 OAuth
             url = f"{self.base_url}/search/photos"
             params = {
                 "query": query,
                 "per_page": per_page,
-                "client_id": self.access_key
+            }
+            headers = {
+                "Authorization": f"Client-ID {self.access_key}"
             }
 
-            # 2. 发 HTTP GET 请求，拿原始 JSON
-            response = requests.get(url, params=params, timeout=10)
+            response = requests.get(url, params=params, headers=headers, timeout=10)
             response.raise_for_status()             # 状态码非 2xx 则抛异常
 
             data = response.json()

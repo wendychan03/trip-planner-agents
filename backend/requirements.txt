@@ -1,5 +1,13 @@
-# HelloAgents框架
-hello-agents[protocols]>=0.2.4,<=0.2.9
+
+
+# 新增这几行 LangChain 1.0 框架
+langchain>=1.0.0                # LangChain 核心（包含 create_agent）
+langchain-openai>=1.0.0         # OpenAI 兼容的 Chat 模型
+langchain-mcp-adapters>=0.2.0   # MCP 工具适配器（把 MCP 服务器变成 LangChain 工具）
+
+
+# # HelloAgents框架
+# hello-agents[protocols]>=0.2.4,<=0.2.9 ← 旧框架
 
 # FastAPI和相关依赖
 fastapi>=0.115.0
@@ -20,8 +28,8 @@ python-multipart>=0.0.9
 # 日志
 loguru>=0.7.0
 
-# MCP相关
-fastmcp>=2.0.0
+# # MCP相关
+# fastmcp>=2.0.0  ← hello-agents 的 MCP 依赖，不再需要
 
 # 其他工具
 python-dateutil>=2.8.2

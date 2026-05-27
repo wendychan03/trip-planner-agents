@@ -670,7 +670,7 @@ PLANNER_AGENT_PROMPT = """你是行程规划专家。根据景点、天气、酒
 }
 ```
 
-规则：
+**规则:**
 1. weather_info数组必须包含每一天的天气信息
 2. 温度必须是纯数字(不要带°C等单位)
 3. 每天安排2-3个景点
@@ -678,6 +678,8 @@ PLANNER_AGENT_PROMPT = """你是行程规划专家。根据景点、天气、酒
 5. 每天必须包含早中晚三餐
 6. 必须包含预算信息
 """
+
+
 
 
 class MultiAgentTripPlanner:
@@ -955,7 +957,8 @@ def get_trip_planner_agent() -> MultiAgentTripPlanner:
     if _multi_agent_planner is None:
         _multi_agent_planner = MultiAgentTripPlanner()
     return _multi_agent_planner
-```
+
+
 
 ### 7.6 关键变化总结
 

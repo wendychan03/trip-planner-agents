@@ -56,7 +56,9 @@ async def plan_trip(request: TripRequest):
 
         # 生成旅行计划
         print("🚀 开始生成旅行计划...")
-        trip_plan = agent.plan_trip(request)
+        # trip_plan = agent.plan_trip(request)
+        #因为 `MultiAgentTripPlanner.plan_trip()` 现在是 `async def`，调用方必须 `await`。
+        trip_plan = await agent.plan_trip(request)
 
         print("✅ 旅行计划生成成功,准备返回响应\n")
 

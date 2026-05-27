@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from ..config import get_settings, validate_config, print_config
-from .routes import trip, poi, map as map_routes
+from .routes import trip, poi
 
 # 获取配置
 settings = get_settings()
@@ -35,8 +35,7 @@ app.add_middleware(
 # 3. 注册业务路由 — 各模块的 APIRouter 挂载到 /api 前缀下
 # ============================================================
 app.include_router(trip.router, prefix="/api")       # 行程规划
-app.include_router(poi.router, prefix="/api")        # POI 搜索
-app.include_router(map_routes.router, prefix="/api") # 地图服务
+app.include_router(poi.router, prefix="/api")        # 景点图片（Unsplash）
 
 
 # ============================================================

@@ -6,11 +6,11 @@ from typing import List
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-# 1. 加载 .env 文件 — 将 KEY=VALUE 注入 os.environ
-load_dotenv()                                                      # 项目自己的 .env
-helloagents_env = Path(__file__).parent.parent.parent.parent / "HelloAgents" / ".env"
-if helloagents_env.exists():
-    load_dotenv(helloagents_env, override=False)                      # 不覆盖已有的，项目 .env 优先级更高
+# # 1. 加载 .env 文件 — 将 KEY=VALUE 注入 os.environ
+# load_dotenv()                                                      # 项目自己的 .env
+# helloagents_env = Path(__file__).parent.parent.parent.parent / "HelloAgents" / ".env"
+# if helloagents_env.exists():
+#     load_dotenv(helloagents_env, override=False)                      # 不覆盖已有的，项目 .env 优先级更高
 
 
 class Settings(BaseSettings):
@@ -37,12 +37,16 @@ class Settings(BaseSettings):
 
     # Unsplash API — 用于获取目的地风景图片
     unsplash_access_key: str = ""
-    unsplash_secret_key: str = ""
+    # unsplash_secret_key: str = ""
 
-    # LLM 大模型配置 — OpenAI 兼容接口
-    openai_api_key: str = ""
-    openai_base_url: str = "https://api.openai.com/v1"     # 可换成国内代理地址
-    openai_model: str = "gpt-4"
+    # # LLM 大模型配置 — OpenAI 兼容接口
+    # openai_api_key: str = ""
+    # openai_base_url: str = "https://api.openai.com/v1"     # 可换成国内代理地址
+    # openai_model: str = "gpt-4"
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_model_id: str = "gpt-4"
+
 
     # 日志级别
     log_level: str = "INFO"
@@ -74,11 +78,12 @@ def validate_config():
     if not settings.amap_api_key:
         errors.append("AMAP_API_KEY未配置")             # 高德地图是核心功能，缺失就报错
 
-    # 兼容两种命名习惯：LLM_API_KEY 或 OPENAI_API_KEY
-    llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
-    if not llm_api_key:
-        warnings.append("LLM_API_KEY或OPENAI_API_KEY未配置,LLM功能可能无法使用")
-
+    # # 兼容两种命名习惯：LLM_API_KEY 或 OPENAI_API_KEY
+    # llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+    # if not llm_api_key:
+    #     warnings.append("LLM_API_KEY或OPENAI_API_KEY未配置,LLM功能可能无法使用")
+    if not settings.llm_api_key:
+        warnings.append("LLM_API_KEY未配置,LLM功能可能无法使用")
     if errors:
         error_msg = "配置错误:\n" + "\n".join(f"  - {e}" for e in errors)
         raise ValueError(error_msg)
@@ -98,13 +103,23 @@ def print_config():
     print(f"服务器: {settings.host}:{settings.port}")
     print(f"高德地图API Key: {'已配置' if settings.amap_api_key else '未配置'}")
 
-    # LLM 优先读环境变量，其次用类默认值
-    llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
-    llm_base_url = os.getenv("LLM_BASE_URL") or settings.openai_base_url
-    llm_model = os.getenv("LLM_MODEL_ID") or settings.openai_model
+    # # LLM 优先读环境变量，其次用类默认值
+    # llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+    # llm_base_url = os.getenv("LLM_BASE_URL") or settings.openai_base_url
+    # llm_model = os.getenv("LLM_MODEL_ID") or settings.openai_model
 
-    print(f"LLM API Key: {'已配置' if llm_api_key else '未配置'}")
-    print(f"LLM Base URL: {llm_base_url}")
-    print(f"LLM Model: {llm_model}")
-    print(f"日志级别: {settings.log_level}")
+    # print(f"LLM API Key: {'已配置' if llm_api_key else '未配置'}")
+    # print(f"LLM Base URL: {llm_base_url}")
+    # print(f"LLM Model: {llm_model}")
+    # print(f"日志级别: {settings.log_level}")
+
+    # 改后：直接用 settings 的属性
+    print(f"LLM API Key: {'已配置' if settings.llm_api_key else '未配置'}")
+    print(f"LLM Base URL: {settings.llm_base_url}")
+    print(f"LLM Model: {settings.llm_model_id}")
+
+
+### 为什么这样改？
+# `BaseSettings` 在创建时已经自动从环境变量和 `.env` 文件加载了所有值到字段上。
+# `validate_config()` 和 `print_config()` 里用 `os.getenv()` 重复读环境变量是多余的，直接用 `settings.字段名` 就行。
 
