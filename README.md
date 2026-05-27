@@ -1,10 +1,10 @@
-# HelloAgents智能旅行助手 🌍✈️
+# LangChain 智能旅行助手 🌍✈️
 
-基于HelloAgents框架构建的智能旅行规划助手,集成高德地图MCP服务,提供个性化的旅行计划生成。
+基于 LangChain 1.0 框架构建的智能旅行规划助手，集成高德地图 MCP 服务，提供个性化的旅行计划生成。
 
 ## ✨ 功能特点
 
-- 🤖 **AI驱动的旅行规划**: 基于HelloAgents框架的SimpleAgent,智能生成详细的多日旅程
+- 🤖 **AI驱动的旅行规划**: 基于 LangChain 1.0 的 create_agent，多智能体协作生成详细的多日旅程
 - 🗺️ **高德地图集成**: 通过MCP协议接入高德地图服务,支持景点搜索、路线规划、天气查询
 - 🧠 **智能工具调用**: Agent自动调用高德地图MCP工具,获取实时POI、路线和天气信息
 - 🎨 **现代化前端**: Vue3 + TypeScript + Vite,响应式设计,流畅的用户体验
@@ -13,7 +13,7 @@
 ## 🏗️ 技术栈
 
 ### 后端
-- **框架**: HelloAgents (基于SimpleAgent)
+- **框架**: LangChain 1.0 (create_agent)
 - **API**: FastAPI
 - **MCP工具**: amap-mcp-server (高德地图)
 - **LLM**: 支持多种LLM提供商(OpenAI, DeepSeek等)
@@ -37,7 +37,7 @@ helloagents-trip-planner/
 │   │   │   ├── main.py
 │   │   │   └── routes/
 │   │   │       ├── trip.py
-│   │   │       └── map.py
+│   │   │       └── poi.py
 │   │   ├── services/          # 服务层
 │   │   │   ├── amap_service.py
 │   │   │   └── llm_service.py
@@ -133,7 +133,7 @@ npm run dev
 2. 点击"生成旅行计划"按钮
 
 3. 系统将:
-   - 调用HelloAgents Agent生成初步计划
+   - 多智能体协作：景点搜索、天气查询、酒店推荐、行程规划
    - Agent自动调用高德地图MCP工具搜索景点
    - Agent获取天气信息和路线规划
    - 整合所有信息生成完整行程
@@ -147,29 +147,30 @@ npm run dev
 
 ## 🔧 核心实现
 
-### HelloAgents Agent集成
+### LangChain 1.0 多智能体协作
 
 ```python
-from hello_agents import SimpleAgent, HelloAgentsLLM
-from hello_agents.tools import MCPTool
+from langchain.agents import create_agent
+from langchain_core.messages import HumanMessage
 
-# 创建高德地图MCP工具
-amap_tool = MCPTool(
-    name="amap",
-    server_command=["uvx", "amap-mcp-server"],
-    env={"AMAP_MAPS_API_KEY": "your_api_key"},
-    auto_expand=True
+# 创建景点搜索Agent
+attraction_agent = create_agent(
+    model=llm,
+    tools=amap_tools,
+    system_prompt="你是景点搜索专家..."
 )
 
-# 创建旅行规划Agent
-agent = SimpleAgent(
-    name="旅行规划助手",
-    llm=HelloAgentsLLM(),
-    system_prompt="你是一个专业的旅行规划助手..."
-)
+# 多智能体协作：依次调用不同Agent
+attraction_result = await attraction_agent.ainvoke({
+    "messages": [HumanMessage(content=attraction_query)]
+})
+weather_result = await weather_agent.ainvoke({...})
+hotel_result = await hotel_agent.ainvoke({...})
 
-# 添加工具
-agent.add_tool(amap_tool)
+# 规划Agent整合所有信息
+plan_result = await planner_agent.ainvoke({
+    "messages": [HumanMessage(content=planner_query)]
+})
 ```
 
 ### MCP工具调用
@@ -187,9 +188,7 @@ Agent可以自动调用以下高德地图MCP工具:
 
 主要端点:
 - `POST /api/trip/plan` - 生成旅行计划
-- `GET /api/map/poi` - 搜索POI
-- `GET /api/map/weather` - 查询天气
-- `POST /api/map/route` - 规划路线
+- `GET /api/poi/photos` - 搜索景点图片
 
 ## 🤝 贡献指南
 
@@ -201,12 +200,12 @@ CC BY-NC-SA 4.0
 
 ## 🙏 致谢
 
+- [LangChain](https://github.com/langchain-ai/langchain) - LLM 应用开发框架
 - [HelloAgents](https://github.com/datawhalechina/Hello-Agents) - 智能体教程
-- [HelloAgents框架](https://github.com/jjyaoao/HelloAgents) - 智能体框架
 - [高德地图开放平台](https://lbs.amap.com/) - 地图服务
 - [amap-mcp-server](https://github.com/sugarforever/amap-mcp-server) - 高德地图MCP服务器
 
 ---
 
-**HelloAgents智能旅行助手** - 让旅行计划变得简单而智能 🌈
+**LangChain 智能旅行助手** - 让旅行计划变得简单而智能 🌈
 
